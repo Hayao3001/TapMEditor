@@ -1,8 +1,11 @@
-using UnityEngine;
 using UnityEditor; // エディタ拡張関連はUnityEditor名前空間に定義されているのでusingしておく。
-using System.Collections;
 using System.IO;
 using System.Media;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Unity.EditorCoroutines.Editor;
 
 // エディタに独自のウィンドウを作成する
 public class EditorExWindow : EditorWindow
@@ -12,8 +15,18 @@ public class EditorExWindow : EditorWindow
     private int sp = 5;
     private Vector2 leftScrollPos = Vector2.zero;
     private Vector2 rightScrollPos = Vector2.zero;
-    private int count = 19;
+    private int count = 18;
     private string filename;
+    private bool isPlay = false;
+    private GameObject AudioObj;
+    private AudioSource audioSource;
+    private AudioClip audioClip;
+    private int audiolength;
+    private int lineCount;
+    private float scale;
+    private float stopmusicpos = 0.0f;
+    private float space = 13.5f;
+    private float offset = 5.0f;
     // メニューのWindowにEditorExという項目を追加。
     [MenuItem("Window/EditorEx")]
     static void Open()
@@ -39,18 +52,82 @@ public class EditorExWindow : EditorWindow
 
     //     method.Invoke( null, new object[] { clip } );
     // }
+
+    IEnumerator LoadToAudioClipAndPlay(float musicpos){
+        if(audioSource == null){
+            AudioObj = new GameObject("Audio");
+
+            AudioObj.hideFlags = HideFlags.HideAndDontSave;
+            audioSource = AudioObj.AddComponent<AudioSource>();
+            if (audioSource == null || string.IsNullOrEmpty(filename)){
+                Debug.Log("null break");
+                yield break;
+            }
+            using(WWW www = new WWW(filename)){
+                while (!www.isDone)
+                    yield return null;
+                audioClip = www.GetAudioClip(false, true);
+                audioSource.clip = audioClip;
+                audioSource.time = musicpos;
+                audioSource.Play();
+                isPlay = true;
+                lineCount = (int)audioClip.length + 1;
+            } 
+        }
+        if(!(audioSource.isPlaying)){
+            AudioObj = new GameObject("Audio");
+
+            AudioObj.hideFlags = HideFlags.HideAndDontSave;
+            audioSource = AudioObj.AddComponent<AudioSource>();
+            if (audioSource == null || string.IsNullOrEmpty(filename)){
+                Debug.Log("null break");
+                yield break;
+            }
+            using(WWW www = new WWW(filename)){
+                while (!www.isDone)
+                    yield return null;
+                audioClip = www.GetAudioClip(false, true);
+                audioSource.clip = audioClip;
+                audioSource.time = musicpos;
+                audioSource.Play();
+                isPlay = true;
+                lineCount = (int)audioClip.length + 1;
+            }
+        }
+    }
+    void RedLine(float height, float offset){
+        var prevColor = Handles.color;
+        Handles.color = Color.red;
+        var startLinePos = new Vector3(offset,15.0f,0.0f);
+        var endLinePos = new Vector3(offset,height,0.0f);
+        Handles.DrawLine(startLinePos,endLinePos);
+        Handles.color = prevColor;
+    }
     // Windowのクライアント領域のGUI処理を記述
     void OnGUI()
     {
         // 試しにラベルを表示
         EditorGUILayout.BeginHorizontal( GUI.skin.box );
-        EditorGUILayout.BeginVertical( GUI.skin.box,GUILayout.Width ( 120 ) );
+        EditorGUILayout.BeginVertical( GUI.skin.box,GUILayout.Width ( 150 ) );
         leftScrollPos = EditorGUILayout.BeginScrollView( leftScrollPos,GUI.skin.box );
         {
             if(GUILayout.Button("再生")){
-                if(filename != null){
-                    var player = new SoundPlayer( filename );
-                    player.Play();   
+                EditorCoroutineUtility.StartCoroutine(LoadToAudioClipAndPlay(stopmusicpos), this);
+            }
+            if(GUILayout.Button("一時停止")){
+                if(audioClip != null){
+                    stopmusicpos=audioSource.time;
+                    Debug.Log(audioSource.time);
+                    audioSource.Pause();
+                    isPlay = false;
+                }
+            }
+            if(GUILayout.Button("停止")){
+                if(audioClip != null){
+                    stopmusicpos=0.0f;
+                    audioSource.Stop();
+                    isPlay = false;
+                    offset = 5.0f;
                 }
             }
             if(GUILayout.Button("add MP3")){
@@ -60,7 +137,6 @@ public class EditorExWindow : EditorWindow
                     return;
                 Debug.Log(filename);
             }
-            GUILayout.Box("Music", GUILayout.Height(heightspace-4f),GUILayout.Width(120f));
             for(int i = 0; i <= 3; i++){
                 int a = i + 1;
                 GUILayout.Space(sp+3);
@@ -93,14 +169,15 @@ public class EditorExWindow : EditorWindow
 
         EditorGUILayout.BeginVertical( GUI.skin.box);
 
+        // RedLine();
+        scale = EditorGUILayout.Slider(scale, 1, 10,GUILayout.Width(200f));
         rightScrollPos = EditorGUILayout.BeginScrollView( rightScrollPos,GUI.skin.box );
         {
+            RedLine(position.height, offset);
             EditorGUILayout.BeginHorizontal( GUI.skin.box );
-            int lineCount = 190;
             float startpoint = 5.0f;
-            var space = 13.5f;
             var startPos = new Vector3(startpoint,15.0f,0.0f);
-            var endPos = new Vector3((float)lineCount*space+startpoint,15.0f,0.0f);
+            var endPos = new Vector3(((float)lineCount*space+startpoint)*scale,15.0f,0.0f);
             var baseLinePos = new Vector3(200.0f,0.0f,0.0f);
             var prev = Handles.color;
             Handles.color = Color.white;
@@ -115,15 +192,15 @@ public class EditorExWindow : EditorWindow
                     vector.y = 0f;
                 }
                 Handles.DrawLine(spos, vector);
-                xpos = xpos + space;
+                xpos = xpos + space * scale;
             }
             Handles.DrawLine(startPos, endPos);
             Handles.color = prev;
             EditorGUILayout.EndHorizontal();
-            GUILayout.Space(25f);
+            GUILayout.Space(55f);
             for (int i = 0; i < count; i++){
                 EditorGUILayout.BeginHorizontal( GUI.skin.box );
-                GUILayout.Box("", GUILayout.Height(heightspace),GUILayout.Width((float)lineCount*space));
+                GUILayout.Box("", GUILayout.Height(heightspace),GUILayout.Width(((float)lineCount*space)*scale));
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(sp-5.0f);
             }
@@ -132,5 +209,12 @@ public class EditorExWindow : EditorWindow
 
         EditorGUILayout.EndVertical();
         EditorGUILayout.EndHorizontal();
+    }
+    void Update()
+    {
+        if(isPlay){
+            offset = offset + 0.00406f*(space*scale);
+        }
+        //((Time.deltaTime)/50)
     }
 }
