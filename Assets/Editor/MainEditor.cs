@@ -12,14 +12,12 @@ using Unity.EditorCoroutines.Editor;
 //Resourves.Loadでできるようにする
 public class CSV : MonoBehaviour
 {
+    private static int rownum = 0;
+
     public static void AddCSV(string filename, string linename, string tyepname, float startime, float endtime){
         var list = "";
         Debug.Log(filename);
-        if(!HasData(Path.GetFileNameWithoutExtension(filename))){
-            list = linename + "," + tyepname + "," + startime.ToString() + "," + endtime.ToString() + "\n";
-        }else{
-            list = linename + "," + tyepname + "," + startime.ToString() + "," + endtime.ToString() + "\n";
-        }
+        list = linename + "," + tyepname + "," + startime.ToString() + "," + endtime.ToString() + "\n";
         if(filename == null){
             return;
         }
@@ -31,9 +29,11 @@ public class CSV : MonoBehaviour
     public static void GetCSV(string filename, List<string[]> csvDatas){
         var csvfile = Resources.Load(filename) as TextAsset;
         StringReader file = new StringReader(csvfile.text);
+        rownum = 0;
         while(file.Peek() != -1){
             string line = file.ReadLine();
             csvDatas.Add(line.Split(','));
+            rownum = rownum + 1;
         }
     }
 
@@ -52,6 +52,10 @@ public class CSV : MonoBehaviour
             return true;
         }
     }
+
+    public static int GetRowNum(){
+        return rownum;
+    }
 }
 
 // エディタに独自のウィンドウを作成する
@@ -60,9 +64,11 @@ public class EditMusicScore : EditorWindow
     private const float eachspace = 45f;
     private const float heightspace = 35f;
     private const int sp = 5;
+    private const float basepos = 85f;
+    private const float perbasepos = 47.2f;
     private Vector2 leftScrollPos = Vector2.zero;
     private Vector2 rightScrollPos = Vector2.zero;
-    private const int count = 18;
+    // private const int count = 18;
     private string filename;
     private static bool isPlay = false;
     private GameObject AudioObj;
@@ -75,6 +81,12 @@ public class EditMusicScore : EditorWindow
     private float space = 13.5f;
     private float offset = 0.0f;
     private float time;
+    private static List<string[]> CSVData = new List<string[]>();
+    private static List<string[]> MusicData = new List<string[]>();
+    private static string[] linename = new string[]{};
+    private static int[] perlinecount = new int[]{};
+    private const int linenum = 18;
+    private Rect lineRect;
 
     // メニューのWindowにEditorExという項目を追加。
     [MenuItem("Window/EditMusicScore")]
@@ -158,6 +170,9 @@ public class EditMusicScore : EditorWindow
                     return;
                 Debug.Log(filename);
             }
+            if(GUILayout.Button("Update")){
+                UpdateCSV();
+            }
             for(int i = 0; i <= 3; i++){
                 int a = i + 1;
                 GUILayout.Space(sp+3);
@@ -189,7 +204,7 @@ public class EditMusicScore : EditorWindow
         EditorGUILayout.EndVertical();
 
         EditorGUILayout.BeginVertical( GUI.skin.box);
-
+    //
         // RedLine();
         scale = EditorGUILayout.Slider(scale, 1, 10,GUILayout.Width(200f));
         time = EditorGUILayout.DelayedFloatField(time);
@@ -227,11 +242,29 @@ public class EditMusicScore : EditorWindow
             Handles.DrawLine(startPos, endPos);
             Handles.color = prev;
             EditorGUILayout.EndHorizontal();
-            GUILayout.Space(35f);
-            for (int i = 0; i < count; i++){
+            GUILayout.Space(55f);
+            for (int i = 0; i < linenum; i++){
+                // EditorGUI.DrawRect(new Rect(0f, basepos+perbasepos*i, 1*scale, 10), Color.green);
                 EditorGUILayout.BeginHorizontal( GUI.skin.box );
                 GUILayout.Box("", GUILayout.Height(heightspace),GUILayout.Width(((float)lineCount*space)*scale));
                 EditorGUILayout.EndHorizontal();
+                for(int a=0; a < CSV.GetRowNum(); a++){
+                    if(CSVData[a][0] == linename[i]){
+                        // Debug.Log("i:"+i+CSVData[a][0]);
+                        if(CSVData[a][1] == "Tap"){
+                            var time = float.Parse(CSVData[a][2]);
+                            EditorGUI.DrawRect(new Rect(time*space*scale, basepos+perbasepos*i, 1*scale, 10), Color.green);
+                        }else{
+                            var starttime = float.Parse(CSVData[a][2]);
+                            var endtime = float.Parse(CSVData[a][3]);
+                            if(starttime == endtime){
+                                EditorGUI.DrawRect(new Rect(starttime*space*scale, basepos+perbasepos*i, 1*scale, 10), Color.green);
+                            }else{
+                                EditorGUI.DrawRect(new Rect(starttime*space*scale, basepos+perbasepos*i, endtime*space*scale-starttime*space*scale, 10), Color.green);
+                            }
+                        }   
+                    }
+                }
                 GUILayout.Space(sp-5.0f);
             }
         }
@@ -257,6 +290,17 @@ public class EditMusicScore : EditorWindow
     public static bool GetisPlay(){
         return isPlay;
     }
+
+    public static void UpdateCSV(){
+        AssetDatabase.Refresh();
+        CSVData = new List<string[]>();
+        var filename = AddBlock.GetFileName();
+        CSV.GetCSV(filename, CSVData);
+        linename = AddBlock.GetLineName();
+        Debug.Log(CSV.GetRowNum());
+        Debug.Log(CSVData[CSV.GetRowNum()-1][0]);
+    }
+
 }
 
 public class AddBlock: EditorWindow{
@@ -266,8 +310,8 @@ public class AddBlock: EditorWindow{
     private float endtime = 0.0f;
     private static bool canSet = true;
     private string filepath;
-    private string filename = "MusicData";
-    public static List<string[]> CSVData = new List<string[]>();
+    private static string filename = "MusicData";
+    private static List<string[]> CSVData = new List<string[]>();
 
     private static readonly string[] Line = new string[]
     {
@@ -320,7 +364,8 @@ public class AddBlock: EditorWindow{
                 CSV.AddCSV(filepath, Line[_LineIndex], BlockType[_TypeIndex], startime, 0.0f);
             }
             CSV.GetCSV(filename, CSVData);
-            Debug.Log(CSVData[1][0]==null);
+            EditMusicScore.UpdateCSV();
+            // Debug.Log(CSVData[1][0]==null);
         }
     }
 
@@ -335,8 +380,12 @@ public class AddBlock: EditorWindow{
         canSet = !canSet;
     }
 
-    public static List<string[]> GetMusicData(){
-        return CSVData;
+    public static string GetFileName(){
+        return filename;
+    }
+
+    public static string[] GetLineName(){
+        return Line;
     }
 }
 
