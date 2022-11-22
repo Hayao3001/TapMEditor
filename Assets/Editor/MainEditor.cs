@@ -78,7 +78,7 @@ public class EditMusicScore : EditorWindow
     private int lineCount;
     private float scale;
     private static float stopmusicpos = 0.0f;
-    private float space = 13.5f;
+    private float space = 180f;
     private float offset = 0.0f;
     private float time;
     private static List<string[]> CSVData = new List<string[]>();
@@ -87,6 +87,7 @@ public class EditMusicScore : EditorWindow
     private static int[] perlinecount = new int[]{};
     private const int linenum = 18;
     private Rect lineRect;
+    private float bpm = 240f;
 
     // メニューのWindowにEditorExという項目を追加。
     [MenuItem("Window/EditMusicScore")]
@@ -126,10 +127,11 @@ public class EditMusicScore : EditorWindow
         }
     }
     void PaintRedLine(float height, float width){
+        var per_bpm = (float)bpm/(float)240;
         var prevColor = Handles.color;
         Handles.color = Color.red;
-        var startLinePos = new Vector3(width,15.0f,0.0f);
-        var endLinePos = new Vector3(width,height,0.0f);
+        var startLinePos = new Vector3(width*per_bpm,15.0f,0.0f);
+        var endLinePos = new Vector3(width*per_bpm,height,0.0f);
         Handles.DrawLine(startLinePos,endLinePos);
         Handles.color = prevColor;
     }
@@ -173,6 +175,8 @@ public class EditMusicScore : EditorWindow
             if(GUILayout.Button("Update")){
                 UpdateCSV();
             }
+            GUILayout.Label("BPM");
+            bpm = EditorGUILayout.DelayedFloatField(bpm);
             for(int i = 0; i <= 3; i++){
                 int a = i + 1;
                 GUILayout.Space(sp+3);
@@ -207,6 +211,10 @@ public class EditMusicScore : EditorWindow
     //
         // RedLine();
         scale = EditorGUILayout.Slider(scale, 1, 10,GUILayout.Width(200f));
+        var per_measure_text = "per_measure:"+((float)240/(float)bpm).ToString();
+        var per_measure_text_16 = "per_measure_16:"+((float)240/(float)bpm/(float)16).ToString();
+        GUILayout.Label(per_measure_text);
+        GUILayout.Label(per_measure_text_16);
         time = EditorGUILayout.DelayedFloatField(time);
         rightScrollPos = EditorGUILayout.BeginScrollView( rightScrollPos,GUI.skin.box );
         {
@@ -227,22 +235,72 @@ public class EditMusicScore : EditorWindow
             var prev = Handles.color;
             Handles.color = Color.white;
             var xpos = startpoint;
+            float before_xpos_per = 0f;
             for (int i = 0; i <= lineCount; i++)
             {
                 var spos = new Vector3(xpos, 15.0f);
-                var vector = new Vector3(xpos, 10.0f, 0f);
+                var vector = new Vector3(xpos, 2.5f, 0f);
+                var beat_4_top = new Vector3(before_xpos_per, 15.0f, 0f);
+                var beat_4_bottom = new Vector3(before_xpos_per, 1000.0f, 0f);
+                var beat_8_top = new Vector3(before_xpos_per, 15.0f, 0f);
+                var beat_8_bottom = new Vector3(before_xpos_per, 1000.0f, 0f);
+                var beat_12_top = new Vector3(before_xpos_per, 15.0f, 0f);
+                var beat_12_bottom = new Vector3(before_xpos_per, 1000.0f, 0f);
+                var beat_16_top = new Vector3(before_xpos_per, 15.0f, 0f);
+                var beat_16_bottom = new Vector3(before_xpos_per, 1000.0f, 0f);
+                int beat_count_4 = 0;
+                int beat_count_8 = 0;
+                int beat_count_12 = 0;
                 // baseLinePosは起点のPosition
                 if (i % 5 == 0)
                 {
                     vector.y = 0f;
                 }
                 Handles.DrawLine(spos, vector);
+                if(xpos != 0.0f){
+                    for(int beat = 0; beat < 16; beat++){
+                        beat_16_top.x = (space * scale) / 16 + beat_16_top.x;
+                        beat_16_bottom.x = beat_16_top.x;
+                        var beatColor = Handles.color;
+                        Handles.color = new Color(35f,35f,35f,0.1f);
+                        Handles.DrawLine(beat_16_top, beat_16_bottom);
+                        Handles.color = beatColor;
+                        if(beat_count_4 < 4){
+                            beat_4_top.x = (space * scale) / 4 + beat_4_top.x;
+                            beat_4_bottom.x = beat_4_top.x;
+                            beatColor = Handles.color;
+                            Handles.color = new Color(35f,35f,35f,0.4f);
+                            Handles.DrawLine(beat_4_top, beat_4_bottom);
+                            Handles.color = beatColor;
+                            beat_count_4++;
+                        }
+                        if(beat_count_8 < 8){
+                            beat_8_top.x = (space * scale) / 8 + beat_8_top.x;
+                            beat_8_bottom.x = beat_8_top.x;
+                            beatColor = Handles.color;
+                            Handles.color = new Color(35f,35f,35f,0.3f);
+                            Handles.DrawLine(beat_8_top, beat_8_bottom);
+                            Handles.color = beatColor;
+                            beat_count_8++;
+                        }
+                        if(beat_count_12 < 12){
+                            beat_12_top.x = (space * scale) / 8 + beat_12_top.x;
+                            beat_12_bottom.x = beat_12_top.x;
+                            beatColor = Handles.color;
+                            Handles.color = new Color(35f,35f,35f,0.2f);
+                            Handles.DrawLine(beat_12_top, beat_12_bottom);
+                            Handles.color = beatColor;
+                            beat_count_8++;
+                        }
+                        before_xpos_per = xpos;
+                    }
+                }
                 xpos = xpos + space * scale;
             }
             Handles.DrawLine(startPos, endPos);
             Handles.color = prev;
             EditorGUILayout.EndHorizontal();
-            GUILayout.Space(55f);
+            GUILayout.Space(60f);
             for (int i = 0; i < linenum; i++){
                 // EditorGUI.DrawRect(new Rect(0f, basepos+perbasepos*i, 1*scale, 10), Color.green);
                 EditorGUILayout.BeginHorizontal( GUI.skin.box );
@@ -276,7 +334,11 @@ public class EditMusicScore : EditorWindow
     void Update()
     {
         var perspace = (space*scale);
+        var per_bpm = (float)bpm/(float)240;
+
         if(isPlay){
+            Debug.Log(per_bpm);
+            Debug.Log(perspace*per_bpm);
             offset = (audioSource.time)*perspace;
         }
         Repaint();
@@ -344,7 +406,6 @@ public class AddBlock: EditorWindow{
                 filename = Path.GetFileNameWithoutExtension(filepath);
             }
         }
-        filename = EditorGUILayout.DelayedTextField("filename", filename);
         GUILayout.Space(15f);
         GUILayout.Label("Now Time");
         startime = EditorGUILayout.DelayedFloatField(startime);
