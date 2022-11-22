@@ -301,6 +301,7 @@ public class EditMusicScore : EditorWindow
             Handles.color = prev;
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(60f);
+            var per_bpm = (float)bpm/(float)240;
             for (int i = 0; i < linenum; i++){
                 // EditorGUI.DrawRect(new Rect(0f, basepos+perbasepos*i, 1*scale, 10), Color.green);
                 EditorGUILayout.BeginHorizontal( GUI.skin.box );
@@ -311,14 +312,14 @@ public class EditMusicScore : EditorWindow
                         // Debug.Log("i:"+i+CSVData[a][0]);
                         if(CSVData[a][1] == "Tap"){
                             var time = float.Parse(CSVData[a][2]);
-                            EditorGUI.DrawRect(new Rect(time*space*scale, basepos+perbasepos*i, 1*scale, 10), Color.green);
+                            EditorGUI.DrawRect(new Rect(time*space*scale*per_bpm, basepos+perbasepos*i, 1*scale, 10), Color.green);
                         }else{
                             var starttime = float.Parse(CSVData[a][2]);
                             var endtime = float.Parse(CSVData[a][3]);
                             if(starttime == endtime){
-                                EditorGUI.DrawRect(new Rect(starttime*space*scale, basepos+perbasepos*i, 1*scale, 10), Color.green);
+                                EditorGUI.DrawRect(new Rect(starttime*space*scale*per_bpm, basepos+perbasepos*i, 1*scale, 10), Color.green);
                             }else{
-                                EditorGUI.DrawRect(new Rect(starttime*space*scale, basepos+perbasepos*i, endtime*space*scale-starttime*space*scale, 10), Color.green);
+                                EditorGUI.DrawRect(new Rect(starttime*space*scale*per_bpm, basepos+perbasepos*i, endtime*space*scale-starttime*space*scale, 10), Color.green);
                             }
                         }   
                     }
